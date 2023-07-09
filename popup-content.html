@@ -180,7 +180,6 @@ filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#01051d",endCo
       width: 100px;
     }
     .copy-button i {
-    
   margin-right: 5px;
 }
 .approve-button i {
@@ -219,6 +218,7 @@ filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#01051d",endCo
         position: absolute;
         transition: (-50,-50);
         border-radius: 5px;
+        padding: 5px 5px;
         cursor: pointer;
         color: white;
         /* New CSS properties for vertical display */
@@ -344,12 +344,6 @@ function toggleDropdown() {
 var sectionTab = document.getElementById('section-tab');
 sectionTab.addEventListener('click', toggleDropdown);
 
-    suggestionTab.addEventListener('click', function() {
-      suggestionTab.style.fontWeight = 'bold';
-      paraphraseTab.style.fontWeight = 'normal';
-      sectionTab.style.fontWeight ='normal';
-      // Add your code here for handling the Suggestion tab click
-    });
 
 
     sectionTab.addEventListener('click', function() {
@@ -358,15 +352,7 @@ sectionTab.addEventListener('click', toggleDropdown);
       sectionTab.style.fontWeight = 'bold'
       // Add your code here for handling the Suggestion tab click
     });
-    paraphraseTab.addEventListener('click', function() {
-      paraphraseTab.style.fontWeight = 'bold';
-      suggestionTab.style.fontWeight = 'normal';
-      sectionTab.style.fontWeight ='normal';
-      var suggestion = outputTextarea.textContent;
-      var paraphrase = 'Your paraphrase goes here'; // Replace with your paraphrase
-      var section =outputTextarea.textContent;
-      outputTextarea.textContent = paraphrase;
-    });
+  
 
     var approveButton = document.getElementById('approve-button');
     approveButton.addEventListener('click', function() {
@@ -381,33 +367,10 @@ const sectionTab = document.getElementById('section-tab')
 const outputContainer = document.querySelector('.output-textarea');
 
 // Add event listeners to the tabs
-suggestionTab.addEventListener('click', showSuggestion);
-paraphraseTab.addEventListener('click', showParaphrase);
 sectionTab.addEventListener('click', showSection);
 
-// Function to show the Suggestion tab content
-function showSuggestion() {
-  // Remove the active-tab class from the paraphraseTab
-  paraphraseTab.classList.remove('active-tab');
-  
-  // Add the active-tab class to the suggestionTab
-  suggestionTab.classList.add('active-tab');
-  
-  // Update the output content with the suggestion content
-  outputContainer.textContent = 'Suggestion content goes here';
-}
 
-// Function to show the Paraphrase tab content
-function showParaphrase() {
-  // Remove the active-tab class from the suggestionTab
-  suggestionTab.classList.remove('active-tab');
-  
-  // Add the active-tab class to the paraphraseTab
-  paraphraseTab.classList.add('active-tab');
-  
-  // Update the output content with the paraphrase content
-  outputContainer.textContent = 'Paraphrase content goes here';
-} 
+
 
 function showSectionInfo(info) {
       var sectionOutput = document.getElementById('section-output');

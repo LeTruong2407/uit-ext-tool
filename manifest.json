@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "My Highlight Extension",
+    "name": "UIT Extension",
     "version": "1.0",
     "description": "UIT Extension",
     "icons": {
@@ -9,15 +9,26 @@
       "48": "images/icon-48.png",
       "128": "images/icon-128.png"
     },
-    
-    "action":{
-      "default_popup": "popup.html"
-    },
+   
     "content_scripts": [
     {
-    "matches": ["https://www.overleaf.com/project/6442805444ffa2f223dfb19f"],
-    "js": ["content-script.js"]
+    "matches": ["https://www.overleaf.com/*"],
+    "js": ["content-script.js"
+  ]
     }
+    ],
+    "permissions":[
+      "identity"
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "popup-content.html", "loader.html"
+        ],
+        "matches": [
+          "<all_urls>"
+        ]
+      }
     ]
 }
   

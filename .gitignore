@@ -1,0 +1,8 @@
+node_modules
+server/node_modules 
+.env
+background.js 
+popup-script.js 
+extension-proofing.rar 
+green-energy.png
+test_bard.py

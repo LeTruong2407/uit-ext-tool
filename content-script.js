@@ -1,7 +1,4 @@
-//const { log } = require("console");
-//var {popup} = require("./popup.js");
-
-console.log("Content script is runnung", chrome);
+console.log("Content script is runnIng", chrome);
 const bodyDOM = document.querySelector("body");
 let selectionText = "";
 
@@ -49,14 +46,15 @@ function getSelectedTextNode() {
 
 function getRangeSelectionText() {
     const selectionTextNode = getSelectedTextNode();
+    const getRange = selectionTextNode.getRangeAt(0); 
     
-    const getRange = selectionTextNode.getRangeAt(0);   
+    const selectedElement = getRange.commonAncestorContainer.parentElement;  
     const selectionRect = getRange.getBoundingClientRect();
     
-    return selectionRect;
+    return [selectionTextNode,selectionRect, selectedElement, getRange];
 }
 
-function renderTool(selectionTextRange, selectionText, answer){
+function renderTool(selectionTextRange, selectedElement, selectionText, getRange, selectionTextNode){
     const tooltipWrapper = document.createElement('div');
     tooltipWrapper.id = 'research-ext-uit';
     const tooltipIcon = document.createElement('div');
@@ -92,8 +90,8 @@ function renderTool(selectionTextRange, selectionText, answer){
     tooltipWrapper.appendChild(tooltipIcon);
 
     // determine top, left of tooltip
-    const top = selectionTextRange.top + selectionTextRange.height + 1 + 'px';
-    const left = selectionTextRange.left + (selectionTextRange.width / 2) - (tooltipWrapper.offsetWidth/2) + 'px';
+    const top = selectionTextRange.top + selectionTextRange.height + 1  + 'px';
+    const left = selectionTextRange.left + (selectionTextRange.width / 2) + 20  -  (tooltipWrapper.offsetWidth/2) + 'px';
 
     tooltipWrapper.style.position = 'absolute';
     tooltipWrapper.style.background = 'white';
@@ -105,74 +103,314 @@ function renderTool(selectionTextRange, selectionText, answer){
 
     bodyDOM.appendChild(tooltipWrapper);
 
+    const loading = false;
     if(tooltipWrapper) {
     tooltipWrapper.addEventListener("click", async () => {
-        console.log("hihi", selectionText);
+        const loading = true;
+        console.log(selectionText);
         if(selectionText.length > 0){
-            
-            const result = await fetch(`http://localhost:3000/api/check?input=${selectionText}`);
-            const resultJson = await result.json();
-            renderResult(selectionTextRange, selectionText, resultJson.output);
+            try{
+                Loading(selectionTextRange, selectionText);
+               // // Define the base URL based on the mode
+               const baseUrl = 'https://mmlab.uit.edu.vn/check-paper/api/check';
+               //const baseUrl = 'http://localhost:3001/api/check';
+               // // Construct the complete URL
+               const url = `${baseUrl}?input=${encodeURIComponent(selectionText)}`;
+
+               // // Make the fetch request
+               const result = await fetch(url);
+
+                //
+                const resultJson = await result.json();
+                const correctedGrammar = resultJson.output;
+                console.log(correctedGrammar);
+                //remove loading 
+                const loading = document.querySelector('div#loading-ext-uit')
+                loading.remove();
+                renderResult(selectionTextRange, selectionText, correctedGrammar, selectedElement, getRange, selectionTextNode);
+            } 
+            catch(err){
+                console.log(err);
+            }
         }
     });
 }   
-
 }
-function renderResult(selectionTextRange, selectionText, answer){
+
+async function Loading(selectionTextRange, selectionText) {
+    const tooltipWrapper = document.createElement('div');
+    tooltipWrapper.id = 'loading-ext-uit';
+    const tooltipContainer = document.createElement('div');
+    tooltipContainer.classList.add("loading-ext-container");
+  
+    // Fetch the HTML file
+    const filePath = chrome.runtime.getURL('loader.html');
+    const response = await fetch(filePath);
+    const htmlContent = await response.text();
+  
+    // Set the fetched HTML as the inner HTML of the tooltip container
+    tooltipContainer.innerHTML = htmlContent;
+  
+    tooltipWrapper.appendChild(tooltipContainer);
+  
+    // determine top, left of tooltip
+    const top = selectionTextRange.top + selectionTextRange.height - 2 + 'px';
+    const left = selectionTextRange.left + (selectionTextRange.width / 2) - (tooltipWrapper.offsetWidth / 2) + 'px';
+  
+    bodyDOM.appendChild(tooltipWrapper);
+  }
+  
+
+  function renderResult(selectionTextRange, selectionText, answer, selectedElement, getRange, selectionTextNode) {
     const tooltipWrapper = document.createElement('div');
     tooltipWrapper.id = 'research-result-ext-uit';
     const tooltipContainer = document.createElement('div');
-    tooltipContainer.classList.add("research-result-ext-container");
-     tooltipContainer.innerHTML = `
-     <label for="">
-        Input: 
-         <span>${selectionText}</span>
-    </label>
+    tooltipContainer.classList.add('box');
   
-     <label for="">
-         Output:
-         <span>${answer}</span>
-     </label>
-     `;
+    const filePath = chrome.runtime.getURL('popup-content.html');
+  
+    // Fetch the HTML content
+    fetch(filePath)
+      .then(response => response.text())
+      .then(html => {
+        tooltipContainer.innerHTML = html;
+  
+        console.log(2, tooltipContainer);
+  
+        const suggestionTab = tooltipContainer.querySelector('#suggestion-tab');
+        const paraphraseTab = tooltipContainer.querySelector('#paraphrase-tab');
+        suggestionTab.style.fontWeight = 'bold';
+        paraphraseTab.style.fontWeight = 'normal';
+  
+        const outputContainer = tooltipContainer.querySelector('.output-textarea');
+  
+        let grammar; // Declare grammar variable here
+  
+        if (answer == "1" || answer == "1.") {
+          grammar = "Congratulation, no error. Let's check the paraphrase version.";
+          outputContainer.textContent = grammar;
+        } else {
+          grammar = answer;
+          outputContainer.textContent = grammar;
+        }
+  
+        // Add event listeners to the tabs
+        suggestionTab.addEventListener('click', showSuggestion);
+        paraphraseTab.addEventListener('click', showParaphrase);
+  
+        // Function to show the Suggestion tab content
+        function showSuggestion() {
+          // Remove the active-tab class from the paraphraseTab
+          paraphraseTab.classList.remove('active-tab');
+          // Add the active-tab class to the suggestionTab
+          suggestionTab.classList.add('active-tab');
+          suggestionTab.style.fontWeight = 'bold';
+          paraphraseTab.style.fontWeight = 'normal';
+          // Update the output content with the suggestion content
+          outputContainer.textContent = grammar;
+  
+          // Enable/disable buttons based on conditions
+          updateButtonState();
+        }
+  
+        let paraphraseFetched = false;
+        let parap = "waiting...";
+  // Function to fetch the paraphrase result
+        async function fetchParaphrase() {
+          try {
+            const baseUrl = 'http://localhost:3001/api/check';
+            // Make the fetch request
+            const result = await fetch(baseUrl);
+            const resultJson = await result.json();
+            parap = resultJson.output;
+            return parap;
+          } catch (err) {
+            console.log(err);
+          }}
 
-    //tooltipContainer.innerHTML = popup(selectionText, answer);
-    tooltipWrapper.appendChild(tooltipContainer);
 
-    // determine top, left of tooltip
-    const top = selectionTextRange.top + selectionTextRange.height - 2 + 'px';
-    const left = selectionTextRange.left + (selectionTextRange.width / 2) - (tooltipWrapper.offsetWidth/2) + 'px';
-
-    tooltipWrapper.style.position = 'absolute';
-    tooltipWrapper.style.background = 'white';
-    tooltipWrapper.style.cursor = 'pointer';
-    tooltipWrapper.style.padding = '4px';
-    tooltipWrapper.style.top = top;
-    tooltipWrapper.style.left = left;
+        // Function to show the Paraphrase tab content
+        function showParaphrase() {
+          outputContainer.textContent = parap;
+          // Remove the active-tab class from the suggestionTab
+          suggestionTab.classList.remove('active-tab');
+          // Add the active-tab class to the paraphraseTab
+          paraphraseTab.classList.add('active-tab');
+          paraphraseTab.style.fontWeight = 'bold';
+          suggestionTab.style.fontWeight = 'normal';
 
 
-    bodyDOM.appendChild(tooltipWrapper);
+          if (!paraphraseFetched) {
+            // Fetch the paraphrase if it hasn't been fetched before
+            fetchParaphrase()
+              .then(para => {
+                // Update the output container with the paraphrase result
+                outputContainer.textContent = para;
+                // Set the flag to true indicating that the paraphrase has been fetched
+                paraphraseFetched = true;
+              })
+              .catch(err => {
+                console.log(err);
+              });
+          }
+
+
+          // Update the output content with the paraphrase content
+          //outputContainer.textContent = answer.paraphrase;
+  
+          // Enable/disable buttons based on conditions
+          updateButtonState();
+        }
+  
+        // Function to enable/disable buttons based on conditions
+        function updateButtonState() {
+          const isSuggestionTabActive = suggestionTab.classList.contains('active-tab');
+          const isGrammarOne = answer == '1' || answer == '1.';
+  
+          // Get the "Copy" and "Approve" button elements
+          const copyButton = tooltipContainer.querySelector('#copy-button');
+          const approveButton = tooltipContainer.querySelector('#approve-button');
+  
+          if (isSuggestionTabActive && isGrammarOne) {
+            copyButton.disabled = true;
+            approveButton.disabled = true;
+          } else {
+            copyButton.disabled = false;
+            approveButton.disabled = false;
+          }
+        }
+  
+        // Append the content to the tooltip container
+        tooltipWrapper.appendChild(tooltipContainer);
+  
+        // determine top, left of tooltip
+        const top = selectionTextRange.top + selectionTextRange.height - 2 + 'px';
+        const left = selectionTextRange.left + (selectionTextRange.width / 2) - (tooltipWrapper.offsetWidth / 2) + 'px';
+  
+        tooltipWrapper.style.top = top;
+        tooltipWrapper.style.left = left;
+  
+        bodyDOM.appendChild(tooltipWrapper);
+  
+        // Get the "Approve" button element
+        const approveButton = tooltipContainer.querySelector('#approve-button');
+  
+        // Add event listener to the "Approve" button
+        approveButton.addEventListener('click', () => {
+          const isSuggestionTabActive = suggestionTab.classList.contains('active-tab');
+          const outputContent = isSuggestionTabActive ? answer.correctedGrammar : answer.paraphrase;
+  
+          let op = outputContent;
+          try {
+            if (selectionTextNode.rangeCount) {
+              getRange.deleteContents();
+              getRange.insertNode(document.createTextNode(op));
+            }
+            tooltipWrapper.remove();
+          } catch (error) {
+            console.error(error);
+          }
+        });
+  
+        const copyButton = tooltipContainer.querySelector('#copy-button');
+        copyButton.addEventListener('click', () => {
+          const isSuggestionTabActive = suggestionTab.classList.contains('active-tab');
+          let text = isSuggestionTabActive ? answer.correctedGrammar : answer.paraphrase;
+          navigator.clipboard.writeText(text)
+            .then(() => {
+              console.log('Text copied to clipboard');
+            })
+            .catch((error) => {
+              console.error('Error copying text to clipboard:', error);
+            });
+        });
+  
+        // Enable/disable buttons based on initial conditions
+        updateButtonState();
+
+        // drag mouse
+        let box = tooltipContainer.querySelector('.box');
+        //let boxBody = tooltipContainer.querySelector('.box-body');
+
+        function onDrag({movementX , movementY}){
+            let getStyle = window.getComputedStyle(box);
+            let leftValue = parseInt(getStyle.left);
+            let topValue = parseInt(getStyle.top);
+
+            box.style.left = `${leftValue + movementX}px`;
+            box.style.top = `${topValue + movementY}px`;
+        }
+        box.addEventListener('mousedown', ()=> {
+          box.style.cursor = 'all-scroll';
+          box.addEventListener('mousemove', onDrag);
+        })
+
+        box.addEventListener('mouseup', ()=> {
+          box.style.cursor = 'default';
+          box.removeEventListener('mousemove', onDrag);
+        })
+
+      })
+      .catch(error => {
+        console.error('Error loading HTML content:', error);
+      });
+  }
+  
+  
+  
+  
+
+
+function hideOnClickOutside(element) {
+    const outsideClickListener = event => {
+        if (!element.contains(event.target) && isVisible(element)) { // or use: event.target.closest(selector) === null
+          element.remove();
+          removeClickListener();
+        }
+    }
+
+    const removeClickListener = () => {
+        document.removeEventListener('click', outsideClickListener);
+    }
+
+    document.addEventListener('click', outsideClickListener);
 }
+const isVisible = elem => !!elem && !!( elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length );
 
 
+bodyDOM.addEventListener("mouseup", () => {
+    
+    showExtensionIcon();
+});
 
-bodyDOM.addEventListener("mouseup", ()=>{
+bodyDOM.addEventListener("keyup", (event) => {
+    if (event.shiftKey && event.key.includes("Arrow")) {
+        showExtensionIcon();
+    }
+});
+
+
+let tooltipWrapper;
+function showExtensionIcon() {
     const tooltipResult = document.querySelector('div#research-result-ext-uit')
-    if(tooltipResult) tooltipResult.remove();
+    if(tooltipResult) hideOnClickOutside(tooltipResult)
+    //tooltipResult.remove();
 
 
     selectionText= getSelectedText();
     if(selectionText.length >0) {  
-        const selectionTextRange = getRangeSelectionText();
+        const [selectionTextNode, selectionTextRange, selectedElement, getRange]= getRangeSelectionText();
 
-        // console.log(selectionText);    
-        // console.log(selectionTextRange);
-        renderTool(selectionTextRange, selectionText);
-
+        if(tooltipWrapper) tooltipWrapper.remove();
+        renderTool(selectionTextRange, selectedElement, selectionText, getRange, selectionTextNode); // hiển thị icon extension cho user click
+        tooltipWrapper = document.querySelector('div#research-ext-uit'); // Update the tooltipWrapper variable with the new tooltip
         setTimeout(() => {
             const tooltipWrapper = document.querySelector('div#research-ext-uit'); 
 
             if(tooltipWrapper) tooltipWrapper.remove();
         }, 3000)
     }
-})
-// lang nghe khi nguoi dung click vao icon translator 
+}
+    
+
+
